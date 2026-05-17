@@ -127,8 +127,8 @@ export default function PainelAdminPage() {
     try {
       const ext = file.name.split('.').pop();
       const path = `times/${Date.now()}.${ext}`;
-      await supabase.storage.from('avatars').upload(path, file, { upsert: true });
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      await supabase.storage.from('logos-times').upload(path, file, { upsert: true });
+      const { data: { publicUrl } } = supabase.storage.from('logos-times').getPublicUrl(path);
       setFormTime(p => ({ ...p, logo_url: publicUrl }));
     } catch(e) { setErro('Erro no upload: ' + e.message); }
     finally { setUploadingLogo(false); }
