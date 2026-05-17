@@ -1,0 +1,175 @@
+/* ===========================
+   SHOWCASE SECTION
+   =========================== */
+.showcase {
+  padding: 6rem 2rem;
+  background: linear-gradient(180deg, #0a0a0a 0%, #111111 100%);
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.showcase::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+}
+
+/* ===========================
+   CONTAINER
+   =========================== */
+.showcase__container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ===========================
+   HEADER
+   =========================== */
+.showcase__header {
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.showcase__title {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 700;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #ffffff 0%, #a0a0a0 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.showcase__subtitle {
+  font-size: 1.125rem;
+  color: #a0a0a0;
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ===========================
+   GRID
+   =========================== */
+.showcase__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 3rem;
+}
+
+/* ===========================
+   CARD
+   =========================== */
+.showcase__card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 2rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.showcase__card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.showcase__card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.showcase__card:hover::before {
+  opacity: 1;
+}
+
+/* ===========================
+   CARD ICON
+   =========================== */
+.showcase__card-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  color: #6366f1;
+  margin-bottom: 1.25rem;
+  transition: all 0.3s ease;
+}
+
+.showcase__card:hover .showcase__card-icon {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+}
+
+/* ===========================
+   CARD TEXTOS
+   =========================== */
+.showcase__card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #ffffff;
+}
+
+.showcase__card-description {
+  font-size: 0.95rem;
+  color: #a0a0a0;
+  line-height: 1.6;
+}
+
+/* ===========================
+   RESPONSIVO
+   =========================== */
+@media (max-width: 768px) {
+  .showcase {
+    padding: 4rem 1.5rem;
+  }
+
+  .showcase__grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .showcase__card {
+    padding: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .showcase {
+    padding: 3rem 1rem;
+  }
+
+  .showcase__header {
+    margin-bottom: 2.5rem;
+  }
+}
