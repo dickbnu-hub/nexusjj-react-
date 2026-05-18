@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Search, Users, Calendar, Shield, Trophy, DollarSign, AlertCircle, CheckCircle, X, Edit3, Trash2, Plus, Eye, BarChart3, RefreshCw, Camera } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const ABAS = ['Dashboard', 'Usuários', 'Eventos', 'Times', 'Unificar Perfis'];
+const ABAS = ['Dashboard', 'Organizadores', 'Financeiro', 'Academias', 'Usuários', 'Eventos', 'Times', 'Unificar Perfis'];
 
 export default function PainelAdminPage() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -38,6 +38,25 @@ export default function PainelAdminPage() {
   const [dadosA, setDadosA] = useState(null);
   const [dadosB, setDadosB] = useState(null);
   const [unificando, setUnificando] = useState(false);
+
+  // Organizadores
+  const [organizadores, setOrganizadores] = useState([]);
+  const [modalOrg, setModalOrg] = useState(null);
+  const [formOrg, setFormOrg] = useState({ aprovado: false, valor_token: '' });
+  const [salvandoOrg, setSalvandoOrg] = useState(false);
+  const [notificacoes, setNotificacoes] = useState([]);
+
+  // Financeiro
+  const [finEventos, setFinEventos] = useState([]);
+  const [finResumo, setFinResumo] = useState({ total_tokens: 0, total_valor: 0, total_eventos: 0 });
+  const [modalTokens, setModalTokens] = useState(null);
+  const [formTokens, setFormTokens] = useState({ quantidade: '', observacao: '', desconto: false });
+  const [adicionandoTokens, setAdicionandoTokens] = useState(false);
+
+  // Academias
+  const [academias, setAcademias] = useState([]);
+  const [buscaAcademia, setBuscaAcademia] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('');
 
   useEffect(() => { verificarAdmin(); }, []);
 
@@ -78,6 +97,74 @@ export default function PainelAdminPage() {
     if (timesData.data) setTimes(timesData.data);
   };
 
+  const carregarOrganizadores = async () => {
+    const { data } = await supabase.from('profiles').select('id,nome,email,aprovado,aprovado_em,valor_token,created_at').eq('tipo', 'organizador').order('created_at', { ascending: false });
+    setOrganizadores(data || []);
+    const { data: notifs } = await supabase.from('notificacoes_admin').select('*').eq('lida', false).order('created_at', { ascending: false });
+    setNotificacoes(notifs || []);
+  };
+
+  const salvarOrganizador = async () => {
+    if (!modalOrg) return;
+    setSalvandoOrg(true);
+    try {
+      await supabase.from('profiles').update({ aprovado: formOrg.aprovado, valor_token: parseFloat(formOrg.valor_token) || 0, aprovado_em: formOrg.aprovado ? new Date().toISOString() : null }).eq('id', modalOrg.id);
+      await supabase.from('notificacoes_admin').update({ lida: true }).eq('referencia_id', modalOrg.id);
+      setSucesso('Organizador atualizado!'); setTimeout(() => setSucesso(''), 3000);
+      setModalOrg(null); carregarOrganizadores();
+    } catch(e) { setErro('Erro: ' + e.message); }
+    setSalvandoOrg(false);
+  };
+
+  const adicionarTokens = async () => {
+    if (!modalTokens || !formTokens.quantidade) return;
+    setAdicionandoTokens(true);
+    try {
+      const qtd = parseInt(formTokens.quantidade);
+      const valorUnit = modalTokens.valor_token || 0;
+      const jaComprou = modalTokens.total_comprado || 0;
+      const descPct = formTokens.desconto && jaComprou < 100 ? 10 : 0;
+      const valorTotal = qtd * valorUnit * (1 - descPct / 100);
+      const { data: saldo } = await supabase.from('tokens_saldo').select('id').eq('organizador_id', modalTokens.id).single().catch(() => ({ data: null }));
+      if (saldo) {
+        await supabase.from('tokens_saldo').update({ saldo: (modalTokens.saldo || 0) + qtd, total_comprado: jaComprou + qtd, updated_at: new Date().toISOString() }).eq('organizador_id', modalTokens.id);
+      } else {
+        await supabase.from('tokens_saldo').insert({ organizador_id: modalTokens.id, saldo: qtd, total_comprado: qtd, total_usado: 0 });
+      }
+      await supabase.from('tokens_transacoes').insert({ organizador_id: modalTokens.id, tipo: 'manual', quantidade: qtd, valor_unitario: valorUnit, valor_total: valorTotal, desconto_pct: descPct, observacao: formTokens.observacao || 'Adicionado pelo admin', criado_por: (await supabase.auth.getUser()).data.user?.id });
+      setSucesso(`${qtd} tokens adicionados!`); setTimeout(() => setSucesso(''), 3000);
+      setModalTokens(null); setFormTokens({ quantidade: '', observacao: '', desconto: false });
+      carregarOrganizadores(); carregarFinanceiro();
+    } catch(e) { setErro('Erro: ' + e.message); }
+    setAdicionandoTokens(false);
+  };
+
+  const carregarFinanceiro = async () => {
+    const { data: evts } = await supabase.from('eventos').select('id,nome,created_at,organizador_id').order('created_at', { ascending: false });
+    if (!evts) return;
+    const resultado = [];
+    let totalTokens = 0, totalValor = 0;
+    for (const ev of evts) {
+      const { count: atletas } = await supabase.from('inscricoes').select('id', { count: 'exact' }).eq('evento_id', ev.id).eq('status', 'confirmado');
+      const { data: trans } = await supabase.from('tokens_transacoes').select('quantidade,valor_total').eq('evento_id', ev.id).eq('tipo', 'uso');
+      const tokensUsados = Math.abs((trans || []).reduce((s, t) => s + (t.quantidade || 0), 0));
+      const valorEv = (trans || []).reduce((s, t) => s + (parseFloat(t.valor_total) || 0), 0);
+      const { data: org } = await supabase.from('profiles').select('nome,valor_token').eq('id', ev.organizador_id).single().catch(() => ({ data: null }));
+      resultado.push({ ...ev, atletas: atletas || 0, tokens_usados: tokensUsados, valor_arrecadado: Math.abs(valorEv), organizador_nome: org?.nome || '—', valor_token: org?.valor_token || 0 });
+      totalTokens += tokensUsados; totalValor += Math.abs(valorEv);
+    }
+    setFinEventos(resultado);
+    setFinResumo({ total_tokens: totalTokens, total_valor: totalValor, total_eventos: evts.length });
+  };
+
+  const carregarAcademias = async () => {
+    let q = supabase.from('academias').select('*').order('nome');
+    if (buscaAcademia) q = q.ilike('nome', '%' + buscaAcademia + '%');
+    if (filtroEstado) q = q.eq('estado', filtroEstado);
+    const { data } = await q;
+    setAcademias(data || []);
+  };
+
   const carregarUsuarios = async () => {
     let query = supabase.from('profiles').select('*').order('created_at', { ascending: false });
     if (filtroTipo) query = query.eq('tipo', filtroTipo);
@@ -87,6 +174,12 @@ export default function PainelAdminPage() {
   };
 
   useEffect(() => { if (isAdmin && aba === 'Usuários') carregarUsuarios(); }, [aba, buscaUsuario, filtroTipo, isAdmin]);
+  useEffect(() => { if (isAdmin && aba === 'Organizadores') carregarOrganizadores(); }, [aba, isAdmin]);
+  useEffect(() => { if (isAdmin && aba === 'Financeiro') carregarFinanceiro(); }, [aba, isAdmin]);
+  useEffect(() => { if (isAdmin && aba === 'Academias') carregarAcademias(); }, [aba, buscaAcademia, filtroEstado, isAdmin]);
+  useEffect(() => { if (isAdmin && aba === 'Organizadores') carregarOrganizadores(); }, [aba, isAdmin]);
+  useEffect(() => { if (isAdmin && aba === 'Financeiro') carregarFinanceiro(); }, [aba, isAdmin]);
+  useEffect(() => { if (isAdmin && aba === 'Academias') carregarAcademias(); }, [aba, buscaAcademia, filtroEstado, isAdmin]);
 
   const suspenderUsuario = async (userId, ativo) => {
     await supabase.from('profiles').update({ ativo: !ativo }).eq('id', userId);
@@ -402,6 +495,147 @@ export default function PainelAdminPage() {
         )}
 
         {/* UNIFICAR PERFIS */}
+        {aba === 'Organizadores' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-white">Organizadores {notificacoes.length > 0 && <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">{notificacoes.length} pendente{notificacoes.length > 1 ? 's' : ''}</span>}</h2>
+              <button onClick={carregarOrganizadores} className="text-slate-400 hover:text-white"><RefreshCw size={16}/></button>
+            </div>
+            {organizadores.length === 0 && <p className="text-slate-500 text-sm">Nenhum organizador cadastrado.</p>}
+            {organizadores.map(org => (
+              <div key={org.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="font-semibold text-white truncate">{org.nome || '—'}</p>
+                    {org.aprovado ? <span className="bg-green-500/20 text-green-400 text-xs px-2 py-0.5 rounded-full">Aprovado</span> : <span className="bg-yellow-500/20 text-yellow-400 text-xs px-2 py-0.5 rounded-full">Pendente</span>}
+                  </div>
+                  <p className="text-slate-400 text-sm truncate">{org.email}</p>
+                  <p className="text-slate-500 text-xs mt-0.5">Token: R$ {parseFloat(org.valor_token || 0).toFixed(2)} · Cadastro: {new Date(org.created_at).toLocaleDateString('pt-BR')}</p>
+                </div>
+                <button onClick={() => { setModalOrg(org); setFormOrg({ aprovado: org.aprovado || false, valor_token: org.valor_token || '' }); }} className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-all shrink-0">
+                  Editar
+                </button>
+              </div>
+            ))}
+            {modalOrg && (
+              <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setModalOrg(null)}>
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-white">Configurar Organizador</h3>
+                    <button onClick={() => setModalOrg(null)} className="text-slate-400 hover:text-white"><X size={18}/></button>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-4">{modalOrg.nome} · {modalOrg.email}</p>
+                  <div className="space-y-4">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" checked={formOrg.aprovado} onChange={e => setFormOrg(p => ({ ...p, aprovado: e.target.checked }))} className="w-4 h-4 rounded"/>
+                      <span className="text-white text-sm font-medium">Aprovar organizador</span>
+                    </label>
+                    <div>
+                      <label className="text-slate-400 text-xs mb-1.5 block">Valor por token (R$)</label>
+                      <input type="number" step="0.01" value={formOrg.valor_token} onChange={e => setFormOrg(p => ({ ...p, valor_token: e.target.value }))} placeholder="Ex: 2.50" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"/>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button onClick={() => setModalOrg(null)} className="flex-1 border border-slate-700 text-slate-300 py-2.5 rounded-lg text-sm">Cancelar</button>
+                    <button onClick={salvarOrganizador} disabled={salvandoOrg} className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50">{salvandoOrg ? 'Salvando...' : 'Salvar'}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {aba === 'Financeiro' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-bold text-white">Painel Financeiro</h2>
+              <button onClick={carregarFinanceiro} className="text-slate-400 hover:text-white"><RefreshCw size={16}/></button>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                <p className="text-slate-400 text-xs mb-1">Total de Eventos</p>
+                <p className="text-2xl font-bold text-white">{finResumo.total_eventos}</p>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                <p className="text-slate-400 text-xs mb-1">Tokens Consumidos</p>
+                <p className="text-2xl font-bold text-blue-400">{finResumo.total_tokens}</p>
+              </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-center">
+                <p className="text-slate-400 text-xs mb-1">Receita Total</p>
+                <p className="text-2xl font-bold text-green-400">R$ {finResumo.total_valor.toFixed(2)}</p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-300">Por Evento</h3>
+              {finEventos.length === 0 && <p className="text-slate-500 text-sm">Nenhum evento encontrado.</p>}
+              {finEventos.map(ev => (
+                <div key={ev.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-white truncate">{ev.nome}</p>
+                      <p className="text-slate-400 text-xs mt-0.5">{ev.organizador_nome} · Token: R$ {parseFloat(ev.valor_token || 0).toFixed(2)}</p>
+                    </div>
+                    <button onClick={() => { setModalTokens({ ...ev, saldo: 0 }); setFormTokens({ quantidade: '', observacao: '', desconto: false }); }} className="bg-green-600 hover:bg-green-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all shrink-0">+ Tokens</button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-slate-800">
+                    <div className="text-center"><p className="text-slate-500 text-xs">Atletas</p><p className="text-white font-bold">{ev.atletas}</p></div>
+                    <div className="text-center"><p className="text-slate-500 text-xs">Tokens</p><p className="text-blue-400 font-bold">{ev.tokens_usados}</p></div>
+                    <div className="text-center"><p className="text-slate-500 text-xs">Receita</p><p className="text-green-400 font-bold">R$ {ev.valor_arrecadado.toFixed(2)}</p></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {modalTokens && (
+              <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setModalTokens(null)}>
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-white">Adicionar Tokens</h3>
+                    <button onClick={() => setModalTokens(null)} className="text-slate-400 hover:text-white"><X size={18}/></button>
+                  </div>
+                  <p className="text-slate-400 text-sm mb-4">{modalTokens.organizador_nome} · {modalTokens.nome}</p>
+                  <div className="space-y-4">
+                    <div><label className="text-slate-400 text-xs mb-1.5 block">Quantidade de tokens</label>
+                      <input type="number" value={formTokens.quantidade} onChange={e => setFormTokens(p => ({ ...p, quantidade: e.target.value }))} placeholder="Ex: 50" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"/>
+                    </div>
+                    <div><label className="text-slate-400 text-xs mb-1.5 block">Observação</label>
+                      <input type="text" value={formTokens.observacao} onChange={e => setFormTokens(p => ({ ...p, observacao: e.target.value }))} placeholder="Ex: Pagamento PIX" className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"/>
+                    </div>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" checked={formTokens.desconto} onChange={e => setFormTokens(p => ({ ...p, desconto: e.target.checked }))} className="w-4 h-4 rounded"/>
+                      <span className="text-white text-sm">Aplicar desconto 10% (primeiros 100 tokens)</span>
+                    </label>
+                    {formTokens.quantidade && <p className="text-slate-400 text-xs">Valor: R$ {(parseInt(formTokens.quantidade || 0) * parseFloat(modalTokens.valor_token || 0) * (formTokens.desconto ? 0.9 : 1)).toFixed(2)}</p>}
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button onClick={() => setModalTokens(null)} className="flex-1 border border-slate-700 text-slate-300 py-2.5 rounded-lg text-sm">Cancelar</button>
+                    <button onClick={adicionarTokens} disabled={adicionandoTokens} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-2.5 rounded-lg text-sm font-semibold disabled:opacity-50">{adicionandoTokens ? 'Adicionando...' : 'Confirmar'}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {aba === 'Academias' && (
+          <div className="space-y-4">
+            <div className="flex gap-3 mb-2">
+              <input value={buscaAcademia} onChange={e => setBuscaAcademia(e.target.value)} placeholder="Buscar academia..." className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500"/>
+              <select value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none">
+                <option value="">Todos estados</option>
+                {['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'].map(e => <option key={e} value={e}>{e}</option>)}
+              </select>
+            </div>
+            {academias.length === 0 && <p className="text-slate-500 text-sm">Nenhuma academia encontrada.</p>}
+            {academias.map(a => (
+              <div key={a.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+                <p className="font-semibold text-white">{a.nome}</p>
+                <p className="text-slate-400 text-sm mt-0.5">{[a.cidade, a.estado].filter(Boolean).join(', ') || '—'}</p>
+                {a.responsavel && <p className="text-slate-500 text-xs mt-1">Resp: {a.responsavel}</p>}
+              </div>
+            ))}
+          </div>
+        )}
+
         {aba === 'Unificar Perfis' && (
           <div className="space-y-4">
             <div className="bg-yellow-950/30 border border-yellow-500/20 rounded-xl px-4 py-3">
