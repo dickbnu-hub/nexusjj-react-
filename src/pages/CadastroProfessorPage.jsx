@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabase';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Search, ChevronDown, AlertCircle, CheckCircle, Upload, Plus, Trash2 } from 'lucide-react';
@@ -71,6 +72,7 @@ export default function CadastroProfessorPage() {
 
   const [pessoal, setPessoal] = useState({
     nome: '', sobrenome: '', cpf: '', dataNascimento: '',
+    email: '', senha: '', confirmarSenha: '',
     telefone: '', instagram: '', facebook: '',
     cep: '', logradouro: '', numero: '', complemento: '',
     bairro: '', cidade: '', estado: '',
@@ -141,6 +143,9 @@ export default function CadastroProfessorPage() {
     if (!pessoal.numero.trim()) e.numero = 'Número é obrigatório.';
     if (!pessoal.modalidade) e.modalidade = 'Selecione uma modalidade.';
     if (!pessoal.graduacao) e.graduacao = 'Selecione sua graduação.';
+    if (!pessoal.email || !/\S+@\S+\.\S+/.test(pessoal.email)) e.email = 'Email inválido.';
+    if (!pessoal.senha || pessoal.senha.length < 6) e.senha = 'A senha deve ter pelo menos 6 caracteres.';
+    if (pessoal.senha !== pessoal.confirmarSenha) e.confirmarSenha = 'As senhas não coincidem.';
     return e;
   };
 
@@ -162,12 +167,42 @@ export default function CadastroProfessorPage() {
     window.scrollTo(0, 0);
   };
 
-  const handleSubmit = (ev) => {
+  const handleSubmit = async (ev) => {
     ev.preventDefault();
     const e = validarEtapa1();
     if (Object.keys(e).length > 0) { setErros(e); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); setSucesso(true); }, 1500);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: pessoal.email,
+        password: pessoal.senha,
+        options: { data: { nome: pessoal.nome + ' ' + pessoal.sobrenome, tipo: 'professor' } }
+      });
+      if (error) { setErros({ submit: error.message }); setLoading(false); return; }
+      const userId = data.user?.id;
+      if (userId) {
+        await supabase.from('profiles').upsert({
+          id: userId, tipo: 'professor',
+          nome: pessoal.nome + ' ' + pessoal.sobrenome,
+          email: pessoal.email, cpf: pessoal.cpf,
+          data_nascimento: pessoal.dataNascimento,
+          telefone: pessoal.telefone, instagram: pessoal.instagram,
+          modalidade: pessoal.modalidade, graduacao: pessoal.graduacao,
+          cep: pessoal.cep, logradouro: pessoal.logradouro,
+          numero: pessoal.numero, bairro: pessoal.bairro,
+          cidade: pessoal.cidade, estado: pessoal.estado,
+        });
+        await supabase.from('academias').insert({
+          nome: academia.nomeAcademia, professor_id: userId,
+          telefone: academia.telefoneAcademia, site: academia.site,
+          cep: academia.cepAcademia, logradouro: academia.logradouroAcademia,
+          numero: academia.numeroAcademia, bairro: academia.bairroAcademia,
+          cidade: academia.cidadeAcademia, estado: academia.estadoAcademia,
+        });
+      }
+      setSucesso(true);
+    } catch(err) { setErros({ submit: err.message }); }
+    setLoading(false);
   };
 
   const adicionarProfAux = () => {
@@ -378,6 +413,28 @@ export default function CadastroProfessorPage() {
                 )}
               </div>
 
+              {/* Email e Senha */}
+              <div className="pt-4 border-t border-slate-700">
+                <h3 className="text-white font-semibold mb-4">Acesso ao sistema</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-slate-400 text-sm mb-1.5 block">Email *</label>
+                    <input type="email" value={pessoal.email} onChange={e => setPessoal(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" className={inputClass('email')}/>
+                    {erros.email && <p className="text-red-400 text-xs mt-1">{erros.email}</p>}
+                  </div>
+                  <div>
+                    <label className="text-slate-400 text-sm mb-1.5 block">Senha *</label>
+                    <input type="password" value={pessoal.senha} onChange={e => setPessoal(p => ({...p, senha: e.target.value}))} placeholder="Mínimo 6 caracteres" className={inputClass('senha')}/>
+                    {erros.senha && <p className="text-red-400 text-xs mt-1">{erros.senha}</p>}
+                  </div>
+                  <div>
+                    <label className="text-slate-400 text-sm mb-1.5 block">Confirmar senha *</label>
+                    <input type="password" value={pessoal.confirmarSenha} onChange={e => setPessoal(p => ({...p, confirmarSenha: e.target.value}))} placeholder="Repita a senha" className={inputClass('confirmarSenha')}/>
+                    {erros.confirmarSenha && <p className="text-red-400 text-xs mt-1">{erros.confirmarSenha}</p>}
+                  </div>
+                </div>
+              </div>
+              {erros.submit && <p className="text-red-400 text-sm text-center">{erros.submit}</p>}
               <button type="button" onClick={avancar} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3.5 rounded-lg transition-all duration-200 shadow-lg shadow-cyan-600/20">
                 Próximo — Dados da Academia
               </button>
