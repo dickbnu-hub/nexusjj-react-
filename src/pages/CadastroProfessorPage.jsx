@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Camera, Search, ChevronDown, AlertCircle, CheckCircle, Upload, Plus, Trash2 } from 'lucide-react';
 import FaixaVisual from '../components/ui/FaixaVisual';
 
@@ -65,6 +66,8 @@ export default function CadastroProfessorPage() {
   const [logoPreview, setLogoPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const navigate = useNavigate();
+  useEffect(() => { if (sucesso) { setTimeout(() => navigate('/painel/professor'), 2000); } }, [sucesso]);
 
   const [pessoal, setPessoal] = useState({
     nome: '', sobrenome: '', cpf: '', dataNascimento: '',
@@ -186,9 +189,7 @@ export default function CadastroProfessorPage() {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Cadastro realizado!</h2>
           <p className="text-slate-400 mb-6">Seu perfil de professor e academia foram criados com sucesso.</p>
-          <a href="/" className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-lg transition-all">
-            Ir para o painel
-          </a>
+          <button onClick={() => navigate('/painel/professor')} className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-lg transition-all">Ir para o painel</button>
         </div>
       </div>
     );

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Camera, Search, ChevronDown, AlertCircle, CheckCircle } from 'lucide-react';
 import FaixaVisual from '../components/ui/FaixaVisual';
 import { cadastrarAtleta } from '../api/authService';
@@ -72,6 +73,8 @@ export default function CadastroAtletaPage() {
   const [erros, setErros] = useState({});
   const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+  const navigate = useNavigate();
+  useEffect(() => { if (sucesso) { setTimeout(() => navigate('/painel/atleta'), 2000); } }, [sucesso]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -201,9 +204,7 @@ export default function CadastroAtletaPage() {
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Cadastro realizado!</h2>
           <p className="text-slate-400 mb-6">Seu perfil de atleta foi criado com sucesso.</p>
-          <a href="/" className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-lg transition-all">
-            Ir para o início
-          </a>
+          <button onClick={() => navigate('/painel/atleta')} className="bg-blue-600 hover:bg-blue-500 text-white font-semibold px-8 py-3 rounded-lg transition-all">Ir para o painel</button>
         </div>
       </div>
     );
