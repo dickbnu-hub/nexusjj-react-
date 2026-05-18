@@ -6,6 +6,8 @@ import Hero from './components/Hero/Hero';
 import ServicesSection from './components/Services/ServicesSection';
 import Showcase from './components/Showcase/Showcase';
 import LoginPage from './pages/LoginPage';
+import RecuperarSenhaPage from './pages/RecuperarSenhaPage';
+import RedefinirSenhaPage from './pages/RedefinirSenhaPage';
 import CadastroPage from './pages/CadastroPage';
 import CadastroAtletaPage from './pages/CadastroAtletaPage';
 import MenorDeIdadePage from './pages/MenorDeIdadePage';
@@ -49,6 +51,8 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<><Hero /><ServicesSection /><Showcase /></>} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/recuperar-senha" element={<RecuperarSenhaPage />} />
+          <Route path="/redefinir-senha" element={<RedefinirSenhaPage />} />
           <Route path="/cadastro" element={<CadastroPage />} />
           <Route path="/cadastro/atleta" element={<CadastroAtletaPage />} />
           <Route path="/cadastro/menor-de-idade" element={<MenorDeIdadePage />} />
