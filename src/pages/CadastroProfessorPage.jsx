@@ -195,11 +195,11 @@ export default function CadastroProfessorPage() {
           cidade: pessoal.cidade, estado: pessoal.estado,
         });
         await supabase.from('academias').insert({
-          nome: academia.nomeAcademia, professor_id: userId,
-          telefone: academia.telefoneAcademia, site: academia.site,
-          cep: academia.cepAcademia, logradouro: academia.logradouroAcademia,
-          numero: academia.numeroAcademia, bairro: academia.bairroAcademia,
-          cidade: academia.cidadeAcademia, estado: academia.estadoAcademia,
+          nome: academia.nomeAcademia,
+          professor_id: userId,
+          telefone: academia.telefoneAcademia,
+          cidade: academia.cidadeAcademia,
+          estado: academia.estadoAcademia,
         });
       }
       setSucesso(true);
