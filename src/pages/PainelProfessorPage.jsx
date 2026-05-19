@@ -9,7 +9,7 @@ const COR_FAIXA = {
   Verde:'#67C75A', Azul:'#2650FF', Roxa:'#B03BC2', Marrom:'#6F3519', Preta:'#252525'
 };
 
-const TIMES = ['Alliance','American Top Team','Atos','Carlson Gracie','Checkmat','GF Team','Gracie Barra','Nova União','Outro'];
+// Times carregados do banco pela NexusJJ
 
 export default function PainelProfessorPage() {
   const navigate = useNavigate();
@@ -49,6 +49,7 @@ export default function PainelProfessorPage() {
   // Form academia
   const [editandoAcademia, setEditandoAcademia] = useState(false);
   const [formAcademia, setFormAcademia] = useState({ nome: '', descricao: '', cidade: '', estado: '', afiliacao: '', telefone: '', aprovacao_alunos: false });
+  const [times, setTimes] = useState([]);
 
   // Alunos — sub-aba
   const [subAbaAlunos, setSubAbaAlunos] = useState('novo'); // novo | existente
@@ -75,6 +76,9 @@ export default function PainelProfessorPage() {
   const [formSolicitarTime, setFormSolicitarTime] = useState({ nomeTime: '', nomeResponsavel: '', email: '' });
 
   useEffect(() => { carregarDados(); }, []);
+  useEffect(() => {
+    supabase.from('times').select('id,nome').eq('ativo', true).order('nome').then(({ data }) => { if (data) setTimes(data); });
+  }, []);
 
   const carregarDados = async () => {
     try {
@@ -470,7 +474,7 @@ export default function PainelProfessorPage() {
                     <select value={formAcademia.afiliacao} onChange={e => setFormAcademia(p => ({ ...p, afiliacao: e.target.value }))}
                       className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500">
                       <option value="">Selecione o time...</option>
-                      {TIMES.map(t => <option key={t} value={t}>{t}</option>)}
+                      {times.map(t => <option key={t.id} value={t.nome}>{t.nome}</option>)}
                     </select>
                     <button type="button" onClick={() => setModalSolicitarTime(true)}
                       className="mt-2 flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs transition-colors">

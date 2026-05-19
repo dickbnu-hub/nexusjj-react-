@@ -188,9 +188,6 @@ export default function PainelAdminPage() {
   useEffect(() => { if (isAdmin && aba === 'Organizadores') carregarOrganizadores(); }, [aba, isAdmin]);
   useEffect(() => { if (isAdmin && aba === 'Financeiro') carregarFinanceiro(); }, [aba, isAdmin]);
   useEffect(() => { if (isAdmin && aba === 'Academias') carregarAcademias(); }, [aba, buscaAcademia, filtroEstado, isAdmin]);
-  useEffect(() => { if (isAdmin && aba === 'Organizadores') carregarOrganizadores(); }, [aba, isAdmin]);
-  useEffect(() => { if (isAdmin && aba === 'Financeiro') carregarFinanceiro(); }, [aba, isAdmin]);
-  useEffect(() => { if (isAdmin && aba === 'Academias') carregarAcademias(); }, [aba, buscaAcademia, filtroEstado, isAdmin]);
 
   const suspenderUsuario = async (userId, ativo) => {
     await supabase.from('profiles').update({ ativo: !ativo }).eq('id', userId);
