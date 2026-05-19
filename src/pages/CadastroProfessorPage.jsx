@@ -184,15 +184,12 @@ export default function CadastroProfessorPage() {
       const userId = data.user?.id;
       if (userId) {
         await supabase.from('profiles').upsert({
-          id: userId, tipo: 'professor',
+          id: userId,
+          tipo: 'professor',
           nome: pessoal.nome + ' ' + pessoal.sobrenome,
-          email: pessoal.email, cpf: pessoal.cpf,
+          email: pessoal.email,
+          telefone: pessoal.telefone,
           data_nascimento: pessoal.dataNascimento,
-          telefone: pessoal.telefone, instagram: pessoal.instagram,
-          modalidade: pessoal.modalidade, graduacao: pessoal.graduacao,
-          cep: pessoal.cep, logradouro: pessoal.logradouro,
-          numero: pessoal.numero, bairro: pessoal.bairro,
-          cidade: pessoal.cidade, estado: pessoal.estado,
         });
         await supabase.from('academias').insert({
           nome: academia.nomeAcademia,
