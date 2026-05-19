@@ -57,6 +57,7 @@ export default function PainelAdminPage() {
   const [academias, setAcademias] = useState([]);
   const [buscaAcademia, setBuscaAcademia] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('');
+  const [modalAcademia, setModalAcademia] = useState(null);
 
   useEffect(() => { verificarAdmin(); }, []);
 
@@ -637,12 +638,48 @@ export default function PainelAdminPage() {
             </div>
             {academias.length === 0 && <p className="text-slate-500 text-sm">Nenhuma academia encontrada.</p>}
             {academias.map(a => (
-              <div key={a.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4">
-                <p className="font-semibold text-white">{a.nome}</p>
-                <p className="text-slate-400 text-sm mt-0.5">{[a.cidade, a.estado].filter(Boolean).join(', ') || '—'}</p>
-                {a.responsavel && <p className="text-slate-500 text-xs mt-1">Resp: {a.responsavel}</p>}
+              <div key={a.id} className="bg-slate-900 border border-slate-800 rounded-xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-white">{a._tipo === 'professor' ? <span className="text-yellow-400">[Sem academia cadastrada]</span> : a.nome}</p>
+                  <p className="text-slate-400 text-sm mt-0.5">{[a.cidade, a.estado].filter(Boolean).join(', ') || '—'}</p>
+                  <p className="text-slate-500 text-xs mt-1">Resp: {a.responsavel || a.nome || '—'} {a.email ? '· ' + a.email : ''}</p>
+                </div>
+                <button onClick={() => setModalAcademia(a)} className="ml-4 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg transition-all">
+                  Ver detalhes
+                </button>
               </div>
             ))}
+
+            {/* Modal detalhes academia */}
+            {modalAcademia && (
+              <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 px-4">
+                <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg">
+                  <div className="flex justify-between items-center mb-5">
+                    <h3 className="text-white font-bold text-lg">
+                      {modalAcademia._tipo === 'professor' ? 'Perfil do Professor' : 'Dados da Academia'}
+                    </h3>
+                    <button onClick={() => setModalAcademia(null)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    {modalAcademia._tipo !== 'professor' && (
+                      <div><span className="text-slate-400">Nome da academia:</span> <span className="text-white font-semibold">{modalAcademia.nome || '—'}</span></div>
+                    )}
+                    <div><span className="text-slate-400">Responsável:</span> <span className="text-white">{modalAcademia.responsavel || '—'}</span></div>
+                    <div><span className="text-slate-400">Email:</span> <span className="text-white">{modalAcademia.email || '—'}</span></div>
+                    <div><span className="text-slate-400">Telefone:</span> <span className="text-white">{modalAcademia.telefone || '—'}</span></div>
+                    {modalAcademia._tipo !== 'professor' && <>
+                      <div><span className="text-slate-400">Endereço:</span> <span className="text-white">{[modalAcademia.logradouro, modalAcademia.numero, modalAcademia.bairro].filter(Boolean).join(', ') || '—'}</span></div>
+                      <div><span className="text-slate-400">Cidade/Estado:</span> <span className="text-white">{[modalAcademia.cidade, modalAcademia.estado].filter(Boolean).join(' / ') || '—'}</span></div>
+                      <div><span className="text-slate-400">CEP:</span> <span className="text-white">{modalAcademia.cep || '—'}</span></div>
+                      {modalAcademia.site && <div><span className="text-slate-400">Site:</span> <a href={modalAcademia.site} target="_blank" className="text-blue-400">{modalAcademia.site}</a></div>}
+                    </>}
+                  </div>
+                  <div className="mt-5 flex justify-end">
+                    <button onClick={() => setModalAcademia(null)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm rounded-lg">Fechar</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

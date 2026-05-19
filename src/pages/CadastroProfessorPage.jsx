@@ -90,6 +90,8 @@ export default function CadastroProfessorPage() {
   const [professoresAux, setProfessoresAux] = useState([{ email: '' }]);
   const [cepLoading, setCepLoading] = useState(false);
   const [cepAcadLoading, setCepAcadLoading] = useState(false);
+  const [nomesSimulares, setNomesSimulares] = useState([]);
+  const [alertaNome, setAlertaNome] = useState(false);
   const [erros, setErros] = useState({});
 
   const inputClass = (campo) =>
@@ -203,6 +205,13 @@ export default function CadastroProfessorPage() {
       setSucesso(true);
     } catch(err) { setErros({ submit: err.message }); }
     setLoading(false);
+  };
+
+  const buscarNomesSimilares = async (nome) => {
+    if (nome.length < 3) { setNomesSimulares([]); setAlertaNome(false); return; }
+    const { data } = await supabase.from('academias').select('id,nome').ilike('nome', '%' + nome + '%').limit(5);
+    if (data && data.length > 0) { setNomesSimulares(data); setAlertaNome(true); }
+    else { setNomesSimulares([]); setAlertaNome(false); }
   };
 
   const adicionarProfAux = () => {
@@ -449,6 +458,13 @@ export default function CadastroProfessorPage() {
           {etapa === 1 && (
             <form onSubmit={handleSubmit} className="space-y-8">
 
+              {/* AVISO: Academia vs Time */}
+              <div className="bg-blue-950/40 border border-blue-500/30 rounded-xl p-4">
+                <p className="text-blue-300 text-sm font-semibold mb-1">🏫 O que é a Academia?</p>
+                <p className="text-slate-300 text-sm">É o <strong>espaço físico</strong> onde você ensina e treina — com endereço e estrutura própria.</p>
+                <p className="text-slate-400 text-xs mt-2">⚠️ <strong>Não confunda com Time/Afiliação.</strong> O time (ex: Alliance, Gracie Barra) é a rede à qual você pertence. Você poderá vincular seu time em outro momento no seu perfil.</p>
+              </div>
+
               {/* LOGO DA ACADEMIA */}
               <div className="flex flex-col items-center gap-3">
                 <div className="relative">
@@ -472,8 +488,20 @@ export default function CadastroProfessorPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Nome da Academia *</label>
-                    <input value={academia.nomeAcademia} onChange={e => { setAcademia(a => ({ ...a, nomeAcademia: e.target.value })); setErros(er => ({ ...er, nomeAcademia: '' })); }} placeholder="Nome oficial da academia" className={inputClass('nomeAcademia')} />
+                    <input value={academia.nomeAcademia}
+                      onChange={e => { setAcademia(a => ({ ...a, nomeAcademia: e.target.value })); setErros(er => ({ ...er, nomeAcademia: '' })); setAlertaNome(false); }}
+                      onBlur={e => buscarNomesSimilares(e.target.value)}
+                      placeholder="Nome oficial da academia" className={inputClass('nomeAcademia')} />
                     {erros.nomeAcademia && <p className="text-red-400 text-xs mt-1">{erros.nomeAcademia}</p>}
+                    {alertaNome && nomesSimulares.length > 0 && (
+                      <div className="mt-2 bg-yellow-950/50 border border-yellow-500/40 rounded-lg p-3">
+                        <p className="text-yellow-400 text-xs font-semibold mb-1">⚠️ Já existe(m) academia(s) com nome similar:</p>
+                        {nomesSimulares.map(n => (
+                          <p key={n.id} className="text-yellow-300 text-xs">• {n.nome}</p>
+                        ))}
+                        <p className="text-slate-400 text-xs mt-1">Se for a mesma academia, entre em contato com a NexusJJ. Caso contrário, continue normalmente.</p>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Telefone *</label>
