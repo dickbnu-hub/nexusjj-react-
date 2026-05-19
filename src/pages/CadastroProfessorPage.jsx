@@ -69,6 +69,9 @@ export default function CadastroProfessorPage() {
   const [sucesso, setSucesso] = useState(false);
   const navigate = useNavigate();
   useEffect(() => { if (sucesso) { setTimeout(() => navigate('/painel/professor'), 2000); } }, [sucesso]);
+  useEffect(() => {
+    supabase.from('times').select('id,nome').eq('ativo', true).order('nome').then(({ data }) => { if (data) setTimes(data); });
+  }, []);
 
   const [pessoal, setPessoal] = useState({
     nome: '', sobrenome: '', cpf: '', dataNascimento: '',
@@ -91,6 +94,7 @@ export default function CadastroProfessorPage() {
   const [validandoProfs, setValidandoProfs] = useState(false);
 
   const [professoresAux, setProfessoresAux] = useState([{ email: '' }]);
+  const [times, setTimes] = useState([]);
   const [cepLoading, setCepLoading] = useState(false);
   const [cepAcadLoading, setCepAcadLoading] = useState(false);
   const [nomesSimulares, setNomesSimulares] = useState([]);
@@ -567,8 +571,20 @@ export default function CadastroProfessorPage() {
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Afiliação / Time <span className="text-slate-500 font-normal">(opcional)</span></label>
-                    <input value={academia.afiliacao} onChange={e => setAcademia(a => ({ ...a, afiliacao: e.target.value }))} placeholder="Ex: Alliance, Gracie Barra, Checkmat..." className={inputClass('afiliacao')} />
-                    <p className="text-slate-500 text-xs mt-1">Você pode adicionar ou alterar isso a qualquer momento no seu painel.</p>
+                    <div className="relative">
+                      <select value={academia.afiliacao} onChange={e => setAcademia(a => ({ ...a, afiliacao: e.target.value }))} className={`${inputClass('afiliacao')} appearance-none pr-10`}>
+                        <option value="">Selecione seu time/afiliação...</option>
+                        {times.map(t => <option key={t.id} value={t.nome}>{t.nome}</option>)}
+                      </select>
+                      <ChevronDown size={16} className="absolute right-3 top-3.5 text-slate-400 pointer-events-none" />
+                    </div>
+                    <p className="text-slate-500 text-xs mt-1">
+                      Não encontrou seu time?{' '}
+                      <a href="mailto:contato@nexusjj.com.br?subject=Solicitar cadastro de time/afiliação" className="text-cyan-400 hover:text-cyan-300">
+                        Solicitar cadastro à NexusJJ
+                      </a>
+                      {' '}— apenas a NexusJJ pode cadastrar times para evitar duplicidades.
+                    </p>
                   </div>
                 </div>
               </div>
