@@ -158,20 +158,21 @@ export default function PainelAdminPage() {
   };
 
   const carregarAcademias = async () => {
-    // Busca em profiles (professores) + tabela academias
-    let q = supabase.from('profiles').select('id,nome,email,telefone,cidade:logradouro,estado,created_at').eq('tipo', 'professor').order('nome');
-    if (buscaAcademia) q = q.ilike('nome', '%' + buscaAcademia + '%');
-    if (filtroEstado) q = q.eq('estado', filtroEstado);
-    const { data: profs } = await q;
-    // Também busca na tabela academias
+    // Busca todos os professores
+    const { data: profs } = await supabase.from('profiles').select('id,nome,email,telefone').eq('tipo', 'professor').order('nome');
+    // Busca tabela academias
     const { data: acads } = await supabase.from('academias').select('*').order('nome');
-    // Unifica: academias da tabela + professores sem academia cadastrada
+    // Unifica
     const idsComAcademia = (acads || []).map(a => a.professor_id);
     const profsSeAcad = (profs || []).filter(p => !idsComAcademia.includes(p.id)).map(p => ({
       id: p.id, nome: p.nome, email: p.email, telefone: p.telefone,
       cidade: null, estado: null, responsavel: p.nome, _tipo: 'professor'
     }));
-    setAcademias([...(acads || []), ...profsSeAcad]);
+    let resultado = [...(acads || []), ...profsSeAcad];
+    // Filtros no frontend
+    if (buscaAcademia) resultado = resultado.filter(a => a.nome?.toLowerCase().includes(buscaAcademia.toLowerCase()));
+    if (filtroEstado) resultado = resultado.filter(a => a.estado === filtroEstado);
+    setAcademias(resultado);
   };
 
   const carregarUsuarios = async () => {
