@@ -80,12 +80,15 @@ export default function CadastroProfessorPage() {
   });
 
   const [academia, setAcademia] = useState({
-    nomeAcademia: '',
+    nomeAcademia: '', afiliacao: '',
     cepAcademia: '', logradouroAcademia: '', numeroAcademia: '',
     complementoAcademia: '', bairroAcademia: '', cidadeAcademia: '', estadoAcademia: '',
     telefoneAcademia: '', site: '',
     aprovacaoManual: false,
   });
+  const [fotoFile, setFotoFile] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [validandoProfs, setValidandoProfs] = useState(false);
 
   const [professoresAux, setProfessoresAux] = useState([{ email: '' }]);
   const [cepLoading, setCepLoading] = useState(false);
@@ -175,6 +178,7 @@ export default function CadastroProfessorPage() {
     if (Object.keys(e).length > 0) { setErros(e); return; }
     setLoading(true);
     try {
+      // 1. Criar conta auth
       const { data, error } = await supabase.auth.signUp({
         email: pessoal.email,
         password: pessoal.senha,
@@ -182,23 +186,75 @@ export default function CadastroProfessorPage() {
       });
       if (error) { setErros({ submit: error.message }); setLoading(false); return; }
       const userId = data.user?.id;
-      if (userId) {
-        await supabase.from('profiles').upsert({
-          id: userId,
-          tipo: 'professor',
-          nome: pessoal.nome + ' ' + pessoal.sobrenome,
-          email: pessoal.email,
-          telefone: pessoal.telefone,
-          data_nascimento: pessoal.dataNascimento,
-        });
-        await supabase.from('academias').insert({
-          nome: academia.nomeAcademia,
-          professor_id: userId,
-          telefone: academia.telefoneAcademia,
-          cidade: academia.cidadeAcademia,
-          estado: academia.estadoAcademia,
-        });
+      if (!userId) { setErros({ submit: 'Erro ao criar usuário.' }); setLoading(false); return; }
+
+      // 2. Upload foto do professor
+      let avatarUrl = null;
+      if (fotoFile) {
+        const ext = fotoFile.name.split('.').pop();
+        const path = `professores/${userId}/foto.${ext}`;
+        const { error: upErr } = await supabase.storage.from('avatars').upload(path, fotoFile, { upsert: true });
+        if (!upErr) {
+          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+          avatarUrl = publicUrl;
+        }
       }
+
+      // 3. Salvar profile
+      await supabase.from('profiles').upsert({
+        id: userId,
+        tipo: 'professor',
+        nome: pessoal.nome + ' ' + pessoal.sobrenome,
+        email: pessoal.email,
+        telefone: pessoal.telefone,
+        data_nascimento: pessoal.dataNascimento,
+        ...(avatarUrl && { avatar_url: avatarUrl }),
+      });
+
+      // 4. Upload logo da academia
+      let logoUrl = null;
+      if (logoFile) {
+        const ext = logoFile.name.split('.').pop();
+        const path = `academias/${userId}/logo.${ext}`;
+        const { error: upErr } = await supabase.storage.from('avatars').upload(path, logoFile, { upsert: true });
+        if (!upErr) {
+          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+          logoUrl = publicUrl;
+        }
+      }
+
+      // 5. Inserir academia com todos os campos
+      const { data: acadData } = await supabase.from('academias').insert({
+        nome: academia.nomeAcademia,
+        professor_id: userId,
+        telefone: academia.telefoneAcademia,
+        cidade: academia.cidadeAcademia,
+        estado: academia.estadoAcademia,
+        afiliacao: academia.afiliacao || null,
+        aprovacao_alunos: academia.aprovacaoManual,
+        ...(logoUrl && { logo_url: logoUrl }),
+      }).select().single();
+
+      // 6. Validar e vincular professores auxiliares
+      const emailsAux = professoresAux.map(p => p.email.trim()).filter(e => e.length > 0);
+      if (emailsAux.length > 0 && acadData?.id) {
+        setValidandoProfs(true);
+        const profsNaoCadastrados = [];
+        for (const email of emailsAux) {
+          const { data: perfil } = await supabase.from('profiles').select('id,nome').eq('email', email).single();
+          if (perfil) {
+            // Vincular à academia
+            await supabase.from('academias').update({}).eq('id', acadData.id); // placeholder - lógica de vínculo futura
+          } else {
+            profsNaoCadastrados.push(email);
+          }
+        }
+        setValidandoProfs(false);
+        if (profsNaoCadastrados.length > 0) {
+          setErros({ profAuxAviso: `Os seguintes professores não têm cadastro na NexusJJ: ${profsNaoCadastrados.join(', ')}. Peça para eles se cadastrarem em nexusjj-react.vercel.app/cadastro/professor` });
+        }
+      }
+
       setSucesso(true);
     } catch(err) { setErros({ submit: err.message }); }
     setLoading(false);
@@ -288,10 +344,10 @@ export default function CadastroProfessorPage() {
                   </div>
                   <label className="absolute bottom-0 right-0 bg-cyan-600 hover:bg-cyan-500 rounded-full p-1.5 cursor-pointer transition-colors">
                     <Camera size={14} className="text-white" />
-                    <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) setFotoPreview(URL.createObjectURL(f)); }} className="hidden" />
+                    <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { setFotoPreview(URL.createObjectURL(f)); setFotoFile(f); } }} className="hidden" />
                   </label>
                 </div>
-                <p className="text-slate-500 text-xs">Foto do professor (opcional)</p>
+                <p className="text-slate-500 text-xs">Foto do professor <span className="text-cyan-400">(recomendada)</span></p>
               </div>
 
               {/* DADOS PESSOAIS */}
@@ -473,7 +529,7 @@ export default function CadastroProfessorPage() {
                   </div>
                   <label className="absolute bottom-0 right-0 bg-cyan-600 hover:bg-cyan-500 rounded-full p-1.5 cursor-pointer transition-colors">
                     <Camera size={14} className="text-white" />
-                    <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) setLogoPreview(URL.createObjectURL(f)); }} className="hidden" />
+                    <input type="file" accept="image/*" onChange={(e) => { const f = e.target.files[0]; if (f) { setLogoPreview(URL.createObjectURL(f)); setLogoFile(f); } }} className="hidden" />
                   </label>
                 </div>
                 <p className="text-slate-500 text-xs">Logo da academia — aparece na ficha de inscrição e no placar digital</p>
@@ -508,6 +564,11 @@ export default function CadastroProfessorPage() {
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-1.5">Site</label>
                     <input value={academia.site} onChange={e => setAcademia(a => ({ ...a, site: e.target.value }))} placeholder="www.suaacademia.com.br" className={inputClass('site')} />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-1.5">Afiliação / Time <span className="text-slate-500 font-normal">(opcional)</span></label>
+                    <input value={academia.afiliacao} onChange={e => setAcademia(a => ({ ...a, afiliacao: e.target.value }))} placeholder="Ex: Alliance, Gracie Barra, Checkmat..." className={inputClass('afiliacao')} />
+                    <p className="text-slate-500 text-xs mt-1">Você pode adicionar ou alterar isso a qualquer momento no seu painel.</p>
                   </div>
                 </div>
               </div>
@@ -557,6 +618,11 @@ export default function CadastroProfessorPage() {
               <div>
                 <h3 className="text-white font-semibold text-sm uppercase tracking-wider mb-1 pb-2 border-b border-slate-800">Professores Auxiliares</h3>
                 <p className="text-slate-500 text-xs mb-4">Adicione até 3 professores com as mesmas permissões. Eles precisam ter cadastro na NexusJJ.</p>
+                {erros.profAuxAviso && (
+                  <div className="mb-3 bg-yellow-950/50 border border-yellow-500/40 rounded-lg p-3">
+                    <p className="text-yellow-300 text-xs">{erros.profAuxAviso}</p>
+                  </div>
+                )}
                 <div className="space-y-3">
                   {professoresAux.map((prof, i) => (
                     <div key={i} className="flex gap-2 items-center">
