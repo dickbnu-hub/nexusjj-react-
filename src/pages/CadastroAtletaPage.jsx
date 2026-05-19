@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Camera, Search, ChevronDown, AlertCircle, CheckCircle } from 'lucide-react';
 import FaixaVisual from '../components/ui/FaixaVisual';
 import { cadastrarAtleta } from '../api/authService';
+import { supabase } from '../lib/supabase';
 
 const MODALIDADES = [
   { valor: 'jiu-jitsu', label: 'Jiu-Jitsu (Gi & NoGi)' },
@@ -71,6 +72,12 @@ export default function CadastroAtletaPage() {
   const [cepLoading, setCepLoading] = useState(false);
   const [cepErro, setCepErro] = useState('');
   const [erros, setErros] = useState({});
+  const [academiaId, setAcademiaId] = useState(null);
+  const [professorId, setProfessorId] = useState(null);
+  const [academiasResultados, setAcademiasResultados] = useState([]);
+  const [buscandoAcademia, setBuscandoAcademia] = useState(false);
+  const [academiaSugestoes, setAcademiaSugestoes] = useState([]);
+  const [academiaSelecionada, setAcademiaSelecionada] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
   const navigate = useNavigate();
@@ -152,6 +159,22 @@ export default function CadastroAtletaPage() {
     return e;
   };
 
+  const buscarAcademias = async (termo) => {
+    if (termo.length < 2) { setAcademiaSugestoes([]); return; }
+    const { data } = await supabase.from('academias').select('id,nome,cidade,estado,professor_id').ilike('nome', `%${termo}%`).limit(6);
+    setAcademiaSugestoes(data || []);
+  };
+
+  const selecionarAcademia = (acad) => {
+    setForm(f => ({ ...f, academia: acad.nome }));
+    setAcademiaId(acad.id);
+    setProfessorId(acad.professor_id);
+    setAcademiaSugestoes([]);
+    setAcademiaSelecionada(true);
+  };
+
+
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const novosErros = validar();
@@ -176,6 +199,9 @@ export default function CadastroAtletaPage() {
         faixa: form.graduacao,
         sexo: form.sexo,
         peso: form.peso ? parseFloat(form.peso) : null,
+        academia: form.academia || null,
+        academiaId: academiaId || null,
+        professorId: professorId || null,
       });
       setSucesso(true);
       setTimeout(() => {
@@ -462,13 +488,39 @@ export default function CadastroAtletaPage() {
                   <input
                     name="academia"
                     value={form.academia}
-                    onChange={handleChange}
+                    onChange={e => {
+                      handleChange(e);
+                      setAcademiaSelecionada(false);
+                      setAcademiaId(null);
+                      setProfessorId(null);
+                      buscarAcademias(e.target.value);
+                    }}
                     placeholder="Buscar academia pelo nome..."
                     className={inputClass('academia')}
+                    autoComplete="off"
                   />
                   <Search size={16} className="absolute right-3 top-3.5 text-slate-400" />
+                  {academiaSugestoes.length > 0 && (
+                    <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
+                      {academiaSugestoes.map(ac => (
+                        <button key={ac.id} type="button" onClick={() => selecionarAcademia(ac)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-slate-700 text-sm text-white border-b border-slate-700/50 last:border-0">
+                          <span className="font-medium">{ac.nome}</span>
+                          {(ac.cidade || ac.estado) && <span className="text-slate-400 ml-2 text-xs">{[ac.cidade, ac.estado].filter(Boolean).join(' / ')}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="text-slate-500 text-xs mt-1">Deixe em branco se não tiver academia.</p>
+                {academiaSelecionada && (
+                  <p className="text-green-400 text-xs mt-1 flex items-center gap-1">✓ Academia vinculada com sucesso</p>
+                )}
+                {!academiaSelecionada && form.academia && (
+                  <p className="text-yellow-400 text-xs mt-1">⚠ Selecione uma academia da lista para vincular seu perfil.</p>
+                )}
+                {!form.academia && (
+                  <p className="text-slate-500 text-xs mt-1">Deixe em branco se não tiver academia.</p>
+                )}
               </div>
             </div>
           </div>
