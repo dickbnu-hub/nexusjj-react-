@@ -39,8 +39,8 @@ export default function CriarEventoPage() {
     try {
       const ext = logoFile.name.split('.').pop();
       const path = `eventos/${Date.now()}.${ext}`;
-      await supabase.storage.from('avatars').upload(path, logoFile, { upsert: true });
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      await supabase.storage.from('logos-eventos').upload(path, logoFile, { upsert: true });
+      const { data: { publicUrl } } = supabase.storage.from('logos-eventos').getPublicUrl(path);
       return publicUrl;
     } catch(e) { return null; }
   };

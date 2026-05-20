@@ -119,7 +119,7 @@ export default function PainelProfessorPage() {
 
       // Carrega perfil atleta do professor
       const { data: atletaProf } = await supabase
-        .from('atletas').select('*').eq('profile_id', user.id).single();
+        .from('atletas').select('*').eq('profile_id', user.id).maybeSingle();
       if (atletaProf) {
         setAtletaProfessor(atletaProf);
         setFormAtletaProf({ faixa: atletaProf.faixa || 'Branca', peso: atletaProf.peso || '', sexo: atletaProf.sexo || '' });
@@ -186,9 +186,9 @@ export default function PainelProfessorPage() {
     try {
       const ext = file.name.split('.').pop();
       const path = `academias/${academia.id}/logo.${ext}`;
-      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+      const { error } = await supabase.storage.from('fotos-professores').upload(path, file, { upsert: true });
       if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      const { data: { publicUrl } } = supabase.storage.from('fotos-professores').getPublicUrl(path);
       await supabase.from('academias').update({ logo_url: publicUrl }).eq('id', academia.id);
       setAcademia(p => ({ ...p, logo_url: publicUrl }));
       setSucesso('Logo atualizada!');

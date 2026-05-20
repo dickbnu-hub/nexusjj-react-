@@ -144,9 +144,9 @@ export default function PainelAtletaPage() {
       const { data: { user } } = await supabase.auth.getUser();
       const ext = file.name.split('.').pop();
       const path = `${user.id}/avatar.${ext}`;
-      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+      const { error } = await supabase.storage.from('fotos-atletas').upload(path, file, { upsert: true });
       if (error) throw error;
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+      const { data: { publicUrl } } = supabase.storage.from('fotos-atletas').getPublicUrl(path);
       await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
       setAvatarUrl(publicUrl);
       setSucesso('Foto atualizada!');
