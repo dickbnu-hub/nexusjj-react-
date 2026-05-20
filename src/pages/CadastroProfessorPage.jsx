@@ -197,9 +197,9 @@ export default function CadastroProfessorPage() {
       if (fotoFile) {
         const ext = fotoFile.name.split('.').pop();
         const path = `professores/${userId}/foto.${ext}`;
-        const { error: upErr } = await supabase.storage.from('avatars').upload(path, fotoFile, { upsert: true });
+        const { error: upErr } = await supabase.storage.from('fotos-professores').upload(path, fotoFile, { upsert: true });
         if (!upErr) {
-          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+          const { data: { publicUrl } } = supabase.storage.from('fotos-professores').getPublicUrl(path);
           avatarUrl = publicUrl;
         }
       }
@@ -220,9 +220,9 @@ export default function CadastroProfessorPage() {
       if (logoFile) {
         const ext = logoFile.name.split('.').pop();
         const path = `academias/${userId}/logo.${ext}`;
-        const { error: upErr } = await supabase.storage.from('avatars').upload(path, logoFile, { upsert: true });
+        const { error: upErr } = await supabase.storage.from('logos-academias').upload(path, logoFile, { upsert: true });
         if (!upErr) {
-          const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+          const { data: { publicUrl } } = supabase.storage.from('fotos-professores').getPublicUrl(path);
           logoUrl = publicUrl;
         }
       }
