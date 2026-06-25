@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, ToggleLeft, ToggleRight, X, AlertCircle, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ToggleLeft, ToggleRight, X, AlertCircle, CheckCircle, ChevronDown, ChevronRight, Layers, Save } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const COLUNA1 = [
@@ -456,6 +456,14 @@ export default function ConfiguracaoCategoriasPage() {
   const [sucesso, setSucesso] = useState('');
   const [erro, setErro] = useState('');
   const [novaEntrada, setNovaEntrada] = useState({ nome: '', modalidade: 'Gi' });
+  const [modalTemplate, setModalTemplate] = useState(false);
+  const [templates, setTemplates] = useState([]);
+  const [templateSelecionado, setTemplateSelecionado] = useState(null);
+  const [aplicandoTemplate, setAplicandoTemplate] = useState(false);
+  const [modalSalvarTemplate, setModalSalvarTemplate] = useState(false);
+  const [nomeNovoTemplate, setNomeNovoTemplate] = useState('');
+  const [descNovoTemplate, setDescNovoTemplate] = useState('');
+  const [salvandoTemplate, setSalvandoTemplate] = useState(false);
 
   useEffect(()=>{
     Promise.all([
@@ -483,6 +491,60 @@ export default function ConfiguracaoCategoriasPage() {
     if(!window.confirm('Remover esta entrada e tudo dentro dela?'))return;
     await supabase.from('entradas').delete().eq('id',id);
     setEntradas(p=>p.filter(e=>e.id!==id));
+  };
+
+  const abrirModalTemplate = async () => {
+    const { data } = await supabase
+      .from('templates_entradas')
+      .select('*, itens:templates_entradas_itens(*)')
+      .eq('ativo', true).order('modalidade').order('nome');
+    if (data) setTemplates(data);
+    setModalTemplate(true);
+  };
+
+  const aplicarTemplate = async (template) => {
+    if (!window.confirm(`Aplicar template "${template.nome}"? As entradas serão adicionadas.`)) return;
+    setAplicandoTemplate(true);
+    try {
+      const itens = template.itens || [];
+      const novas = [];
+      for (let i = 0; i < itens.length; i++) {
+        const item = itens[i];
+        const nomeCompleto = item.sexo === 'ambos' ? item.nome : `${item.nome} ${item.sexo === 'M' ? 'Masculino' : 'Feminino'}`;
+        const { data } = await supabase.from('entradas').insert({
+          evento_id: eventoId, nome: nomeCompleto,
+          modalidade: item.modalidade, ativa: true, ordem: entradas.length + i,
+        }).select().single();
+        if (data) novas.push(data);
+      }
+      setEntradas(p => [...p, ...novas]);
+      setSucesso(`Template "${template.nome}" aplicado com ${novas.length} entradas!`);
+      setTimeout(() => setSucesso(''), 3000);
+      setModalTemplate(false); setTemplateSelecionado(null);
+    } catch(e) { setErro('Erro: ' + e.message); }
+    setAplicandoTemplate(false);
+  };
+
+  const salvarComoTemplate = async () => {
+    if (!nomeNovoTemplate.trim()) { setErro('Informe o nome do template.'); return; }
+    setSalvandoTemplate(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: t } = await supabase.from('templates_entradas').insert({
+        nome: nomeNovoTemplate.trim(), descricao: descNovoTemplate.trim(),
+        modalidade: entradas[0]?.modalidade || 'Gi',
+        is_global: false, criado_por: user.id, ativo: true,
+      }).select().single();
+      if (t) {
+        await supabase.from('templates_entradas_itens').insert(
+          entradas.map((e, i) => ({ template_id: t.id, nome: e.nome, modalidade: e.modalidade, sexo: 'ambos', ordem: i }))
+        );
+        setSucesso(`Template "${nomeNovoTemplate}" salvo!`);
+        setTimeout(() => setSucesso(''), 3000);
+        setModalSalvarTemplate(false); setNomeNovoTemplate(''); setDescNovoTemplate('');
+      }
+    } catch(e) { setErro('Erro: ' + e.message); }
+    setSalvandoTemplate(false);
   };
 
   if(loading) return <div className="min-h-screen bg-slate-950 flex items-center justify-center"><div className="w-7 h-7 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"/></div>;
@@ -516,6 +578,9 @@ export default function ConfiguracaoCategoriasPage() {
           <button onClick={addEntrada} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition-all shrink-0">
             <Plus size={14}/> Entrada
           </button>
+          <button onClick={abrirModalTemplate} className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold px-4 py-2 rounded-lg text-sm transition-all shrink-0">
+            <Layers size={14}/> Templates
+          </button>
         </div>
 
         {entradas.length===0 ? (
@@ -526,8 +591,100 @@ export default function ConfiguracaoCategoriasPage() {
         ) : (
           <div className="space-y-3">
             {entradas.map(e=><EntradaCard key={e.id} entrada={e} eventoId={eventoId} faixas={faixas} onRemover={removerEntrada} todasEntradas={entradas}/>)}
+            <button onClick={() => setModalSalvarTemplate(true)}
+              className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 border-dashed text-slate-400 hover:text-white text-sm font-medium py-3 rounded-xl transition-all mt-2">
+              <Save size={14}/> Salvar configuração atual como Template
+            </button>
           </div>
         )}
+
+      {/* MODAL APLICAR TEMPLATE */}
+      {modalTemplate && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <div>
+                <h2 className="text-white font-bold text-base">📋 Aplicar Template</h2>
+                <p className="text-slate-500 text-xs mt-0.5">Templates NexusJJ + seus templates salvos</p>
+              </div>
+              <button onClick={() => { setModalTemplate(false); setTemplateSelecionado(null); }} className="text-slate-500 hover:text-white"><X size={18}/></button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-5 space-y-2">
+              {['Gi','NoGi'].map(mod => {
+                const grupo = templates.filter(t => t.modalidade === mod);
+                if (!grupo.length) return null;
+                return (
+                  <div key={mod}>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-2 mt-3">{mod === 'Gi' ? '🥋 Com Kimono (Gi)' : '👊 Sem Kimono (NoGi)'}</p>
+                    {grupo.map(t => (
+                      <div key={t.id} onClick={() => setTemplateSelecionado(templateSelecionado?.id === t.id ? null : t)}
+                        className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all mb-1.5 ${templateSelecionado?.id === t.id ? 'border-purple-500 bg-purple-500/10' : 'border-slate-800 hover:border-slate-600 bg-slate-800/40'}`}>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-white text-sm font-semibold">{t.nome}</p>
+                            {t.is_global
+                              ? <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded-full border border-blue-500/20">NexusJJ</span>
+                              : <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded-full border border-purple-500/20">Meu template</span>}
+                          </div>
+                          {t.descricao && <p className="text-slate-500 text-xs mt-0.5">{t.descricao}</p>}
+                          <p className="text-slate-600 text-xs mt-1">{(t.itens||[]).length} entradas</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${templateSelecionado?.id === t.id ? 'border-purple-500 bg-purple-500' : 'border-slate-600'}`}>
+                          {templateSelecionado?.id === t.id && <div className="w-2 h-2 rounded-full bg-white"/>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="p-5 border-t border-slate-800 flex gap-3">
+              <button onClick={() => { setModalTemplate(false); setTemplateSelecionado(null); }}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-xl text-sm">Cancelar</button>
+              <button onClick={() => templateSelecionado && aplicarTemplate(templateSelecionado)}
+                disabled={!templateSelecionado || aplicandoTemplate}
+                className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                {aplicandoTemplate ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/> Aplicando...</> : <><Layers size={15}/> Aplicar Template</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL SALVAR TEMPLATE */}
+      {modalSalvarTemplate && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-slate-800">
+              <h2 className="text-white font-bold text-base">💾 Salvar como Template</h2>
+              <button onClick={() => setModalSalvarTemplate(false)} className="text-slate-500 hover:text-white"><X size={18}/></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-slate-400 text-sm">Salva as <strong className="text-white">{entradas.length} entradas</strong> atuais como template reutilizável.</p>
+              <div>
+                <label className="text-slate-400 text-xs mb-1.5 block">Nome do template *</label>
+                <input value={nomeNovoTemplate} onChange={e => setNomeNovoTemplate(e.target.value)}
+                  placeholder="Ex: Meu evento Kids..."
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500"/>
+              </div>
+              <div>
+                <label className="text-slate-400 text-xs mb-1.5 block">Descrição (opcional)</label>
+                <input value={descNovoTemplate} onChange={e => setDescNovoTemplate(e.target.value)}
+                  placeholder="Breve descrição..."
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-purple-500"/>
+              </div>
+            </div>
+            <div className="p-5 border-t border-slate-800 flex gap-3">
+              <button onClick={() => setModalSalvarTemplate(false)}
+                className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-xl text-sm">Cancelar</button>
+              <button onClick={salvarComoTemplate} disabled={salvandoTemplate}
+                className="flex-1 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2">
+                {salvandoTemplate ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"/> Salvando...</> : <><Save size={15}/> Salvar Template</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
