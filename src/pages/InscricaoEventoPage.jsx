@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useEventoId } from '../hooks/useEventoId';
 import { ArrowLeft, CheckCircle, AlertCircle, ChevronRight, User, Scale, Award } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -10,7 +11,7 @@ const COR_FAIXA = {
 };
 
 export default function InscricaoEventoPage() {
-  const { id: eventoId } = useParams();
+  const { eventoId } = useEventoId();
   const [evento, setEvento] = useState(null);
   const [atleta, setAtleta] = useState(null);
   const [perfil, setPerfil] = useState(null);

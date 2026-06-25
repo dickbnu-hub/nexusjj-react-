@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { useEventoId } from '../hooks/useEventoId';
 import { MapPin, Calendar, Clock, Users, ChevronRight, Share2, Heart, Trophy, Shield, Award, CheckCircle, AlertCircle, X, Check, ArrowLeft, Search, Timer, Zap, Radio, Youtube } from 'lucide-react';
 import PainelLutasAoVivo from './PainelLutasAoVivo';
 import { supabase } from '../lib/supabase';
@@ -107,7 +108,7 @@ function BannerEvento({ evento }) {
 }
 
 export default function EventoDetalhePage() {
-  const { id: eventoId } = useParams();
+  const { eventoId } = useEventoId();
   const [evento, setEvento] = useState(null);
   const [entradas, setEntradas] = useState([]);
   const [inscricoes, setInscricoes] = useState([]);
