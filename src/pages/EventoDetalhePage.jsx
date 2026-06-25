@@ -86,20 +86,34 @@ const medalhaConfig = {
 
 function BannerEvento({ evento }) {
   const modalidades = evento?.modalidades || ['Gi'];
+  const temImagem = !!evento?.logo_url;
   return (
-    <div className="w-full h-56 md:h-72 bg-gradient-to-br from-blue-900 via-slate-900 to-purple-900 flex items-center justify-center relative overflow-hidden">
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-4 left-8 w-32 h-32 rounded-full border-4 border-white" />
-        <div className="absolute bottom-4 right-8 w-48 h-48 rounded-full border-4 border-white" />
+    <div className="w-full h-56 md:h-72 relative overflow-hidden bg-gradient-to-br from-blue-900 via-slate-900 to-purple-900">
+      {/* Imagem de fundo quando existir */}
+      {temImagem && (
+        <img
+          src={evento.logo_url}
+          alt={evento.nome}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+      )}
+      {/* Overlay escuro sempre presente para legibilidade */}
+      <div className={`absolute inset-0 ${temImagem ? 'bg-black/50' : 'opacity-20'}`}>
+        {!temImagem && (
+          <>
+            <div className="absolute top-4 left-8 w-32 h-32 rounded-full border-4 border-white" />
+            <div className="absolute bottom-4 right-8 w-48 h-48 rounded-full border-4 border-white" />
+          </>
+        )}
       </div>
-      <div className="text-center px-6 relative z-10">
+      <div className="text-center px-6 relative z-10 h-full flex flex-col items-center justify-center">
         <div className="flex justify-center gap-2 mb-3">
           {modalidades.map(m => (
             <span key={m} className="text-xs bg-blue-500/30 text-blue-200 border border-blue-400/30 px-3 py-1 rounded-full">{m}</span>
           ))}
         </div>
-        <h1 className="text-white font-bold text-2xl md:text-4xl">{evento?.nome || 'Evento'}</h1>
-        <p className="text-slate-300 mt-2">
+        <h1 className="text-white font-bold text-2xl md:text-4xl drop-shadow-lg">{evento?.nome || 'Evento'}</h1>
+        <p className="text-slate-200 mt-2 drop-shadow">
           {evento?.cidade}/{evento?.estado} · {evento?.data_evento ? new Date(evento.data_evento).toLocaleDateString('pt-BR') : ''}
         </p>
       </div>
